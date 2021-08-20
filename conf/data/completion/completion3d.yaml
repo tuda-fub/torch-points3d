@@ -1,0 +1,8 @@
+# @package data
+defaults:
+  - completion/default
+
+class: completion3d.Completion3dDataset
+task: completion
+dataroot: data
+category: 'Airplane'
