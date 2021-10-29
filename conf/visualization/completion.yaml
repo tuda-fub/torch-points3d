@@ -1,0 +1,10 @@
+# @package _group_
+activate: True
+format: "pointcloud" # image will come later
+num_samples_per_epoch: 10
+deterministic: True # False -> Randomly sample elements from epoch to epoch
+class: CompletionVisualizer
+saved_keys:
+  pos: [['pos_x', 'float'], ['pos_y', 'float'], ['pos_z', 'float']]
+  y: [['y_x', 'float'], ['y_y', 'float'], ['y_z', 'float']]
+  pred: [['pred_x', 'float'], ['pred_y', 'float'], ['pred_z', 'float']]

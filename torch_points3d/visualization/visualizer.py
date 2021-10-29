@@ -1,34 +1,37 @@
 import os
 import torch
+import importlib
 import numpy as np
-from plyfile import PlyData, PlyElement
+import torch_geometric.data
 import logging
+from plyfile import PlyData, PlyElement
+
 
 log = logging.getLogger(__name__)
 
 
-class Visualizer(object):
+class DefaultVisualizer(object):
     """Initialize the Visualizer class.
-    Parameters:
-        viz_conf (OmegaConf Dictionnary) -- stores all config for the visualizer
-        num_batches (dict) -- This dictionnary maps stage_name to #batches
-        batch_size (int) -- Current batch size usef
-        save_dir (str) -- The path used by hydra to store the experiment
+     Parameters:
+         viz_conf (OmegaConf Dictionnary) -- stores all config for the visualizer
+         num_batches (dict) -- This dictionnary maps stage_name to #batches
+         batch_size (int) -- Current batch size usef
+         save_dir (str) -- The path used by hydra to store the experiment
 
-    This class is responsible to save visual into .ply format
-    The configuration looks like that:
-        visualization:
-            activate: False # Wheter to activate the visualizer
-            format: "pointcloud" # image will come later
-            num_samples_per_epoch: 2 # If negative, it will save all elements
-            deterministic: True # False -> Randomly sample elements from epoch to epoch
-            saved_keys: # Mapping from Data Object to structured numpy
-                pos: [['x', 'float'], ['y', 'float'], ['z', 'float']]
-                y: [['l', 'float']]
-                pred: [['p', 'float']]
-            indices: # List of indices to be saved (support "train", "test", "val")
-                train: [0, 3]
-    """
+     This class is responsible to save visual into .ply format
+     The configuration looks like that:
+         visualization:
+             activate: False # Wheter to activate the visualizer
+             format: "pointcloud" # image will come later
+             num_samples_per_epoch: 2 # If negative, it will save all elements
+             deterministic: True # False -> Randomly sample elements from epoch to epoch
+             saved_keys: # Mapping from Data Object to structured numpy
+                 pos: [['x', 'float'], ['y', 'float'], ['z', 'float']]
+                 y: [['l', 'float']]
+                 pred: [['p', 'float']]
+             indices: # List of indices to be saved (support "train", "test", "val")
+                 train: [0, 3]
+     """
 
     def __init__(self, viz_conf, num_batches, batch_size, save_dir):
         # From configuration and dataset
@@ -116,7 +119,7 @@ class Visualizer(object):
 
     def _extract_from_dense(self, item, pos_idx):
         assert (
-            item.y.shape[0] == item.pos.shape[0]
+                item.y.shape[0] == item.pos.shape[0]
         ), "y and pos should have the same number of samples. Something is probably wrong with your data to visualise"
         num_samples = item.y.shape[0]
         out_data = {}
@@ -169,3 +172,78 @@ class Visualizer(object):
                     el = PlyElement.describe(out_item, visual_name)
                     PlyData([el], byte_order=">").write(path_out)
             self._seen_batch += 1
+
+
+class CompletionVisualizer(DefaultVisualizer):
+    """Visualization class for completion tasks
+
+    """
+    def __init__(self, viz_conf, num_batches, batch_size, save_dir):
+        super(CompletionVisualizer, self).__init__(viz_conf, num_batches, batch_size, save_dir)
+
+    def _extract_from_PYG(self, item, pos_idx):
+        num_samples = item.batch.shape[0]
+        batch_mask = item.batch == pos_idx
+        out_data = {}
+        for k in item.keys:
+            if k in self._saved_keys.keys():
+                if torch.is_tensor(item[k]):
+                    out_data[k] = item[k][batch_mask]
+                elif isinstance(item[k], torch_geometric.data.Batch):
+                    batch_mask = item[k].batch == pos_idx
+                    # if the the model's output itself is a batch, just extract the point positions
+                    out_data[k] = item[k]['pos'][batch_mask]
+        return out_data
+
+    def _dict_to_structured_npy(self, item):
+        item.keys()
+        out = []
+        dtypes = []
+        for k, v in item.items():
+            v_npy = v.detach().cpu().numpy()
+            if len(v_npy.shape) == 1:
+                v_npy = v_npy[..., np.newaxis]
+            for dtype in self._saved_keys[k]:
+                dtypes.append(dtype)
+            out.append(v_npy)
+
+        # completion outputs likely consist of a different number of points
+        # so we need to normalize the length of all point arrays
+        max_num_points = np.max([o.shape[0] for o in out])
+        for i,_ in enumerate(out):
+            if out[i].shape[0] < max_num_points:
+                diff = max_num_points - out[i].shape[0]
+                out[i] = np.pad(out[i], ((0, diff), (0, 0)), mode='constant', constant_values=0)
+
+        out = np.concatenate(out, axis=-1)
+        dtypes = np.dtype([tuple(d) for d in dtypes])
+        return np.asarray([tuple(o) for o in out], dtype=dtypes)
+
+
+def instantiate_visualizer(viz_conf, num_batches, batch_size, save_dir):
+    """ Creates a model given a datset and a training config. The config should contain the following:
+    - config.data.task: task that will be evaluated
+    - config.model_name: model to instantiate
+    - config.models: All models available
+    """
+    default_viz = "DefaultVisualizer"
+
+    # Get task and model_name
+    viz_class = viz_conf.get("class", default_viz)
+    viz_paths = viz_class.split(".")
+    class_name = viz_paths[-1]
+    viz_module = "torch_points3d.visualization"
+    vizlib = importlib.import_module(viz_module)
+    viz_cls = None
+    for name, cls in vizlib.__dict__.items():
+        if name.lower() == class_name.lower():
+            viz_cls = cls
+            break
+
+    if viz_cls is None:
+        raise NotImplementedError(
+            "In %s.py, there should be a subclass of BaseDataset with class name that matches %s in lowercase."
+            % (viz_module, class_name)
+        )
+    visualizer = viz_cls(viz_conf, num_batches, batch_size, save_dir)
+    return visualizer

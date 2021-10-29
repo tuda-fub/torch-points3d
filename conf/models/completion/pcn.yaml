@@ -1,0 +1,10 @@
+# @package models
+defaults:
+  - completion/default
+
+pcnnet:
+  class: pcnnet.PcnNet
+  conv_type: "PARTIAL_DENSE"
+  embd_dim: 2048
+  coarse_dim: 4096
+

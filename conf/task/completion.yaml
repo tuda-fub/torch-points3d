@@ -1,0 +1,7 @@
+# @package task
+defaults:
+  - /task/default
+  - override /data@_group_: completion/default
+  - override /models@_group_: completion/default
+
+name: completion

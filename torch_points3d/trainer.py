@@ -24,7 +24,7 @@ from torch_points3d.metrics.model_checkpoint import ModelCheckpoint
 # Utils import
 from torch_points3d.utils.colors import COLORS
 from torch_points3d.utils.wandb_utils import Wandb
-from torch_points3d.visualization import Visualizer
+from torch_points3d.visualization.visualizer import instantiate_visualizer
 
 log = logging.getLogger(__name__)
 
@@ -129,7 +129,8 @@ class Trainer:
         # Run training / evaluation
         self._model = self._model.to(self._device)
         if self.has_visualization:
-            self._visualizer = Visualizer(
+
+            self._visualizer = instantiate_visualizer(
                 self._cfg.visualization, self._dataset.num_batches, self._dataset.batch_size, os.getcwd()
             )
 

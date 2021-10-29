@@ -109,16 +109,59 @@ class ExperimentFolder:
         return num_epoch, stats_dict
 
 
+class ExperimentFolderCompletion(ExperimentFolder):
+
+    POS_KEYS = ["pos_x", "pos_y", "pos_z"]
+    Y_KEYS = ["y_x", "y_y", "y_z"]
+    PRED_KEYS = ["pred_x", "pred_y", "pred_z"]
+
+    def __init__(self, run_path):
+        super(ExperimentFolderCompletion, self).__init__(run_path)
+
+    def load_ply(self, epoch, split, file):
+        self._data_name = "data_{}_{}_{}".format(epoch, split, file)
+        if not hasattr(self, self._data_name):
+            path_to_ply = os.path.join(self._viz_path, str(epoch), split, file)
+            if os.path.exists(path_to_ply):
+                plydata = PlyData.read(path_to_ply)
+                arr = np.asarray([e.data for e in plydata.elements])
+                names = list(arr.dtype.names)
+                pos_indices = [names.index(n) for n in self.POS_KEYS]
+                y_indices = [names.index(n) for n in self.Y_KEYS]
+                pred_indices = [names.index(n) for n in self.PRED_KEYS]
+
+                non_pos_indices = {n: names.index(n) for n in names if n not in self.POS_KEYS + self.Y_KEYS + self.PRED_KEYS}
+                arr_ = rfn.structured_to_unstructured(arr).squeeze()
+
+                pos_xyz = arr_[:, pos_indices]
+                y_xyz = arr_[:, y_indices]
+                pred_xyz = arr_[:, pred_indices]
+
+                data = {"pos_xyz": pos_xyz, "y_xyz": y_xyz, "pred_xyz": pred_xyz,
+                        "columns": non_pos_indices.keys(), "name": self._data_name}
+                for n, i in non_pos_indices.items():
+                    data[n] = arr_[:, i]
+                setattr(self, self._data_name, data)
+            else:
+                print("The file doesn' t exist: Wierd !")
+        else:
+            return getattr(self, self._data_name)
+
+
 class ExperimentManager(object):
-    def __init__(self, experiments_root):
+    def __init__(self, experiments_root, completion_task=False):
         self._experiments_root = experiments_root
+        self.is_completion_task = completion_task
         self._collect_experiments()
 
     def _collect_experiments(self):
         self._experiment_with_models = defaultdict(list)
         run_paths = glob(os.path.join(self._experiments_root, "outputs", "*", "*"))
         for run_path in run_paths:
-            experiment = ExperimentFolder(run_path)
+            if self.is_completion_task:
+                experiment = ExperimentFolderCompletion(run_path)
+            else:
+                experiment = ExperimentFolder(run_path)
             if experiment.contains_trained_model:
                 self._experiment_with_models[experiment.model_name].append(experiment)
 
