@@ -5,6 +5,6 @@ defaults:
 pcnnet:
   class: pcnnet.PcnNet
   conv_type: "PARTIAL_DENSE"
-  embd_dim: 2048
-  coarse_dim: 4096
+  embd_dim: 1024
+  coarse_dim: 2048
 

@@ -2,7 +2,8 @@ import torch.nn.functional as F
 import logging
 from torch_geometric.data import Data, Batch
 from omegaconf import OmegaConf
-from torch_points3d.core.base_conv.base_conv import *
+from chamferdist import ChamferDistance as CD
+from torch_points3d.core.losses.completion_losses import ChamferDistance, EarthMoverDistance
 from torch_points3d.core.common_modules.base_modules import *
 from torch_points3d.utils.config import ConvolutionFormatFactory
 from torch_points3d.modules.PointNet import MiniPointNet
@@ -23,13 +24,18 @@ class PcnNet(BaseModel):
         self.coarse_dim = self._opt.get('coarse_dim', 1024)
         self._is_dense = ConvolutionFormatFactory.check_is_dense_format(self.conv_type)
         self.data_visual = None
+        self.loss_emd_coarse = None
+        self.loss_cd_coarse = None
         self.loss = None
 
         self._build_model()
 
-        self.loss_names = ["loss"]
+        self.loss_names = ["loss", "loss_cd_coarse", "loss_emd_coarse"]
 
-        self.loss_chamfer = ChamferLoss()
+       # self.loss_chamfer = ChamferLoss()
+        self.loss_chamfer2 = CD()
+        self.loss_chamfer = ChamferDistance()
+        self.loss_emd = EarthMoverDistance(max_iter=300)
 
         self.visual_names = ["data_visual"]
 
@@ -94,7 +100,9 @@ class PcnNet(BaseModel):
         batch_size = glob_feat_v.size(0)
         labels = self.labels.view(batch_size, -1, 3)
         if self.labels is not None:
-            self.loss = self.loss_chamfer(y_coarse, labels)
+            self.loss_cd_coarse = self.loss_chamfer(y_coarse, labels)
+            self.loss_emd_coarse = self.loss_emd(y_coarse, labels)
+            self.loss = 0.4 * self.loss_cd_coarse + 0.6 * self.loss_emd_coarse
 
         out_data = []
         for data in y_coarse:
