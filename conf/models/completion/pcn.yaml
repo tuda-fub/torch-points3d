@@ -6,5 +6,12 @@ pcnnet:
   class: pcnnet.PcnNet
   conv_type: "PARTIAL_DENSE"
   embd_dim: 1024
-  coarse_dim: 2048
+  coarse_dim: 1024
+  grid_size: 4
+  grid_scale: 0.05
+  fine_decoder: True
+  coarse_loss: "CD" # either CD or EMD
+  alpha: 0.1
+
+
 

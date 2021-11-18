@@ -181,6 +181,14 @@ class CompletionVisualizer(DefaultVisualizer):
     def __init__(self, viz_conf, num_batches, batch_size, save_dir):
         super(CompletionVisualizer, self).__init__(viz_conf, num_batches, batch_size, save_dir)
 
+    def _extract_from_dense(self, item, pos_idx):
+        num_samples = item["y"].shape[1]
+        out_data = {}
+        for k in item.keys():
+            if torch.is_tensor(item[k]) and k in self._saved_keys.keys():
+                out_data[k] = item[k][pos_idx]
+        return out_data
+
     def _extract_from_PYG(self, item, pos_idx):
         num_samples = item.batch.shape[0]
         batch_mask = item.batch == pos_idx

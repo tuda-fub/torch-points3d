@@ -5,6 +5,7 @@ num_samples_per_epoch: 10
 deterministic: True # False -> Randomly sample elements from epoch to epoch
 class: CompletionVisualizer
 saved_keys:
-  pos: [['pos_x', 'float'], ['pos_y', 'float'], ['pos_z', 'float']]
+  x: [['x_x', 'float'], ['x_y', 'float'], ['x_z', 'float']]
   y: [['y_x', 'float'], ['y_y', 'float'], ['y_z', 'float']]
-  pred: [['pred_x', 'float'], ['pred_y', 'float'], ['pred_z', 'float']]
+  pred_coarse: [['pred_coarse_x', 'float'], ['pred_coarse_y', 'float'], ['pred_coarse_z', 'float']]
+  pred_fine: [['pred_fine_x', 'float'], ['pred_fine_y', 'float'], ['pred_fine_z', 'float']]

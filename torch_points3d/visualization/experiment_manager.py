@@ -14,7 +14,7 @@ def colored_print(color, msg):
 
 class ExperimentFolder:
 
-    POS_KEYS = ["x", "y", "z"]
+    X_KEYS = ["x", "y", "z"]
 
     def __init__(self, run_path):
         self._run_path = run_path
@@ -50,8 +50,8 @@ class ExperimentFolder:
                 plydata = PlyData.read(path_to_ply)
                 arr = np.asarray([e.data for e in plydata.elements])
                 names = list(arr.dtype.names)
-                pos_indices = [names.index(n) for n in self.POS_KEYS]
-                non_pos_indices = {n: names.index(n) for n in names if n not in self.POS_KEYS}
+                pos_indices = [names.index(n) for n in self.X_KEYS]
+                non_pos_indices = {n: names.index(n) for n in names if n not in self.X_KEYS}
                 arr_ = rfn.structured_to_unstructured(arr).squeeze()
                 xyz = arr_[:, pos_indices]
                 data = {"xyz": xyz, "columns": non_pos_indices.keys(), "name": self._data_name}
@@ -111,9 +111,10 @@ class ExperimentFolder:
 
 class ExperimentFolderCompletion(ExperimentFolder):
 
-    POS_KEYS = ["pos_x", "pos_y", "pos_z"]
+    X_KEYS = ["x_x", "x_y", "x_z"]
     Y_KEYS = ["y_x", "y_y", "y_z"]
-    PRED_KEYS = ["pred_x", "pred_y", "pred_z"]
+    PRED_KEYS_COARSE = ["pred_coarse_x", "pred_coarse_y", "pred_coarse_z"]
+    PRED_KEYS_FINE = ["pred_fine_x", "pred_fine_y", "pred_fine_z"]
 
     def __init__(self, run_path):
         super(ExperimentFolderCompletion, self).__init__(run_path)
@@ -126,19 +127,24 @@ class ExperimentFolderCompletion(ExperimentFolder):
                 plydata = PlyData.read(path_to_ply)
                 arr = np.asarray([e.data for e in plydata.elements])
                 names = list(arr.dtype.names)
-                pos_indices = [names.index(n) for n in self.POS_KEYS]
+                x_indices = [names.index(n) for n in self.X_KEYS]
                 y_indices = [names.index(n) for n in self.Y_KEYS]
-                pred_indices = [names.index(n) for n in self.PRED_KEYS]
+                pred_indices_coarse = [names.index(n) for n in self.PRED_KEYS_COARSE]
+                pred_indices_fine = [names.index(n) for n in self.PRED_KEYS_FINE]
 
-                non_pos_indices = {n: names.index(n) for n in names if n not in self.POS_KEYS + self.Y_KEYS + self.PRED_KEYS}
+                non_pos_indices = {n: names.index(n) for n in names if n not in self.X_KEYS + self.Y_KEYS +
+                                   self.PRED_KEYS_COARSE + self.PRED_KEYS_FINE}
                 arr_ = rfn.structured_to_unstructured(arr).squeeze()
 
-                pos_xyz = arr_[:, pos_indices]
+                pos_xyz = arr_[:, x_indices]
                 y_xyz = arr_[:, y_indices]
-                pred_xyz = arr_[:, pred_indices]
+                pred_xyz_coarse = arr_[:, pred_indices_coarse]
+                pred_xyz_fine = arr_[:, pred_indices_fine]
 
-                data = {"pos_xyz": pos_xyz, "y_xyz": y_xyz, "pred_xyz": pred_xyz,
+                data = {"x_xyz": pos_xyz, "y_xyz": y_xyz,
+                        "pred_xyz_coarse": pred_xyz_coarse, "pred_xyz_fine": pred_xyz_fine,
                         "columns": non_pos_indices.keys(), "name": self._data_name}
+
                 for n, i in non_pos_indices.items():
                     data[n] = arr_[:, i]
                 setattr(self, self._data_name, data)

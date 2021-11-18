@@ -16,7 +16,7 @@ class MiniPointNet(torch.nn.Module):
         self.g_pool = global_max_pool if aggr == "max" else global_mean_pool
         self.return_local_out = return_local_out
 
-    def forward(self, x, batch):
+    def forward(self, x, batch=None):
         y = x = self._local_nn(x)  # [num_points, in_dim] -> [num_points, local_out_nn]
         if batch is not None:
             x = self.g_pool(x, batch)  # [num_points, local_out_nn] -> [local_out_nn]
